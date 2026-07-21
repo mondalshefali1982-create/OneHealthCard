@@ -1,0 +1,179 @@
+import { Request, Response } from 'express';
+import User from '../models/User.js';
+import PatientProfile from '../models/PatientProfile.js';
+import DoctorProfile from '../models/DoctorProfile.js';
+import EmergencyContact from '../models/EmergencyContact.js';
+import MedicalRecord from '../models/MedicalRecord.js';
+import Prescription from '../models/Prescription.js';
+import LabReport from '../models/LabReport.js';
+import { AuthRequest } from '../middleware/authMiddleware.js';
+
+export const searchPatient = async (req: AuthRequest, res: Response) => {
+  const { healthId } = req.params;
+
+  if (!healthId) {
+    return res.status(400).json({ message: 'Health ID is required.' });
+  }
+
+  try {
+    const patientProfile = await PatientProfile.findOne({ healthId }).populate('user', 'name email');
+    if (!patientProfile) {
+      return res.status(404).json({ message: 'Patient profile not found.' });
+    }
+
+    const emergencyContact = await EmergencyContact.findOne({ patient: patientProfile._id });
+    const medicalRecords = await MedicalRecord.find({ patient: patientProfile._id }).sort({ date: -1 });
+    const prescriptions = await Prescription.find({ patient: patientProfile._id }).sort({ date: -1 });
+    const labReports = await LabReport.find({ patient: patientProfile._id }).sort({ date: -1 });
+
+    return res.json({
+      profile: patientProfile,
+      emergencyContact,
+      medicalRecords,
+      prescriptions,
+      labReports
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: `Search failed: ${error.message}` });
+  }
+};
+
+export const addPrescription = async (req: AuthRequest, res: Response) => {
+  const { healthId } = req.params;
+  const { diagnosis, medications, notes } = req.body;
+
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (!diagnosis || !medications || !Array.isArray(medications)) {
+    return res.status(400).json({ message: 'Please provide diagnosis and medications list.' });
+  }
+
+  try {
+    const patientProfile = await PatientProfile.findOne({ healthId });
+    if (!patientProfile) {
+      return res.status(404).json({ message: 'Patient profile not found.' });
+    }
+
+    const doctorUser = await User.findById(req.user.id);
+    if (!doctorUser) {
+      return res.status(404).json({ message: 'Doctor account not found.' });
+    }
+
+    const prescription = new Prescription({
+      patient: patientProfile._id,
+      doctor: doctorUser._id,
+      doctorName: doctorUser.name,
+      diagnosis,
+      medications,
+      notes: notes || ''
+    });
+
+    const savedPrescription = await prescription.save();
+
+    // Also auto-append to patient profile current medications (if not already there)
+    medications.forEach(med => {
+      if (!patientProfile.currentMedications.includes(med)) {
+        patientProfile.currentMedications.push(med);
+      }
+    });
+    
+    // Auto-append diagnosis as a chronic disease if it matches severe terms, or just save
+    await patientProfile.save();
+
+    // Add to Medical Timeline as a MedicalRecord event too
+    const medicalRecord = new MedicalRecord({
+      patient: patientProfile._id,
+      disease: diagnosis,
+      diagnosis,
+      medicine: medications.join(', '),
+      doctorName: doctorUser.name,
+      hospital: 'Clinic / Hospital',
+      notes: `Prescription added: ${notes || ''}`
+    });
+    await medicalRecord.save();
+
+    return res.status(201).json({
+      message: 'Prescription added successfully.',
+      prescription: savedPrescription
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: `Failed to add prescription: ${error.message}` });
+  }
+};
+
+export const addMedicalRecord = async (req: AuthRequest, res: Response) => {
+  const { healthId } = req.params;
+  const { disease, diagnosis, medicine, hospital, notes, date } = req.body;
+
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (!disease || !diagnosis || !medicine || !hospital) {
+    return res.status(400).json({ message: 'Missing required medical record fields.' });
+  }
+
+  try {
+    const patientProfile = await PatientProfile.findOne({ healthId });
+    if (!patientProfile) {
+      return res.status(404).json({ message: 'Patient profile not found.' });
+    }
+
+    const doctorUser = await User.findById(req.user.id);
+    const doctorName = doctorUser ? doctorUser.name : 'Unknown Doctor';
+
+    const medicalRecord = new MedicalRecord({
+      patient: patientProfile._id,
+      disease,
+      diagnosis,
+      medicine,
+      doctorName,
+      hospital,
+      notes: notes || '',
+      date: date ? new Date(date) : new Date()
+    });
+
+    const savedRecord = await medicalRecord.save();
+    return res.status(201).json({
+      message: 'Medical record added successfully.',
+      record: savedRecord
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: `Failed to add record: ${error.message}` });
+  }
+};
+
+export const searchDoctors = async (req: Request, res: Response) => {
+  const { specialization, location, query } = req.query;
+
+  try {
+    let filter: any = {};
+
+    if (specialization) {
+      filter.specialization = { $regex: new RegExp(specialization as string, 'i') };
+    }
+
+    if (location) {
+      filter.location = { $regex: new RegExp(location as string, 'i') };
+    }
+
+    // General text query matching name, specialization, or hospital
+    if (query) {
+      const doctors = await DoctorProfile.find().populate('user');
+      const filtered = doctors.filter((doc: any) => {
+        const nameMatch = doc.user?.name?.match(new RegExp(query as string, 'i'));
+        const specMatch = doc.specialization?.match(new RegExp(query as string, 'i'));
+        const hospMatch = doc.hospital?.match(new RegExp(query as string, 'i'));
+        return nameMatch || specMatch || hospMatch;
+      });
+      return res.json(filtered);
+    }
+
+    const doctors = await DoctorProfile.find(filter).populate('user', 'name email');
+    return res.json(doctors);
+  } catch (error: any) {
+    return res.status(500).json({ message: `Failed to search doctors: ${error.message}` });
+  }
+};
