@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#f8fafc] text-slate-900 font-sans antialiased min-h-screen overflow-x-hidden selection:bg-sky-500 selection:text-white;
+  }
+}
+
+/* Custom Scrollbar for Bright Clinical Theme */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-sky-600 transition-colors;
+}
+
+/* Clinical White Card Utilities */
+.clinical-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.3s ease;
+}
+
+.clinical-card:hover {
+  box-shadow: 0 10px 30px -4px rgba(2, 132, 199, 0.12);
+  border-color: #cbd5e1;
+}
+
+.clinical-card-active {
+  background: #ffffff;
+  border: 2px solid #0284c7;
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px -4px rgba(2, 132, 199, 0.2);
+}
+
+.clinical-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  transition: all 0.3s ease;
+}
+
+.clinical-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  outline: none;
+}
+
+/* 3D Card Flip Styling */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Medical Laser Beam Animation */
+@keyframes laser-scan {
+  0% {
+    top: 0%;
+    opacity: 0.9;
+  }
+  50% {
+    top: 100%;
+    opacity: 0.9;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.9;
+  }
+}
+
+.laser-line {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #0284c7, #10b981, #0284c7, transparent);
+  box-shadow: 0 0 12px #0284c7, 0 0 20px rgba(16, 185, 129, 0.6);
+  animation: laser-scan 2.5s ease-in-out infinite;
+}
+
+/* Medical Gradients */
+.bg-medical-hero {
+  background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 50%, #f0f9ff 100%);
+}
+
+.bg-medical-blue {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #0f172a 0%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Heartbeat pulse animation */
+@keyframes heart-pulse {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.12); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.12); }
+  70% { transform: scale(1); }
+}
+
+.animate-pulse-heart {
+  animation: heart-pulse 1.8s infinite ease-in-out;
+}
